@@ -1,0 +1,175 @@
+{
+  "patterns": {
+    "decorativeElements": [
+      "▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱",
+      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+      "═══════════════════════════════",
+      "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=",
+      "╔═══════════════════════════════╗",
+      "╙---------*`------------------------------------",
+      "⋞⥢**{serverName}**⥤⋟",
+      "🔥🌋 {serverName} | {tagline} 🌋🔥",
+      "╭━─━─━─≪✠≫─━─━─━╮",
+      "╰━─━─━─≪✠≫─━─━─━╯",
+      "◢◤◇◥◣◥◤◢◤◆◥◣◥◤◢◤◇◥◣",
+      "``・`` ``・`` ``・`` **{serverName}** ☕ ``・`` ``・`` ``・``",
+      "‿︵‿︵︵✦‿︵‿︵୭﹒✿﹒୧︵‿✦︵‿︵‿︵‿",
+      "︶◟﹒‿︵✦︵‿﹒◞︶︶◟﹒‿︵✦︵‿﹒◞︶",
+      "╭┈┈┈┈┈┈┈୨♡୧┈┈┈┈┈┈┈╮",
+      "✶ ︵︵  ﹒**WLC TO...** ﹒ ⁀⁀⁀⁀"
+    ],
+    "titles": [
+      "𝓣𝓮 𝓲𝓷𝓿𝓲𝓽𝓪𝓶𝓸𝓼 𝓪𝓵 𝓬𝓵𝓪𝓷",
+      "⚔️ 『{serverName}』 ⚔️",
+      "🔥   ᴅᴇ ʟᴀꜱ ꜱᴏᴍʙʀᴀꜱ ᴀ ʟᴀ ɢʟᴏʀɪᴀ   🔥",
+      "✨ \"No somos solo un clan... somos una leyenda en construcción.\" ✨"
+    ],
+    "sectionHeaders": {
+      "offers": [
+        "✠ ¿𝗤𝘂𝗲 𝗼𝗳𝗿𝗲𝗰𝗲𝗺𝗼𝘀? ✠",
+        "⚜️  ***ミ[· → Ofrecemos← ·]彡***  ⚜️",
+        "🏰 ¿QUÉ OFRECEMOS EN {serverName}?",
+        ":Nautic_redstone: ¿Qué recompensas puedes obtener siendo miembro del clan?",
+        "> ・❰✎. .•.*。 ᴏꜰʀᴇᴄᴇᴍᴏꜱ 🌸 🌸 ❱﻿ ・",
+        "``¿qué ofrecemos?``",
+        "𝙾𝚏𝚛𝚎𝚌𝚎𝚖𝚘𝚜:",
+        "・❥・`` {serverName} ofrecemos:``",
+        "ㅤㅤㅤㅤㅤㅤ**¿Que ofrecemos?**",
+        "Ṋ﹒ ﹏ ﹒ *Ofrecemos...*"
+      ],
+      "requirements": [
+        "✦★ ¿𝗤𝘂𝗲 𝗯𝘂𝘀𝗰𝗮𝗺𝗼𝘀? ★✦",
+        "🔱 ***ミ[· → Buscamos← ·]彡 *** 🔱",
+        "🛡️ ¿A QUIÉN LLAMAMOS A NUESTRA LLAMA?",
+        "✅  ***ミ[· → Requisitos← ·]彡***  ✅"
+      ],
+      "description": [
+        "△▼ ¿𝗤𝘂𝗲 𝘀𝗼𝗺𝗼𝘀? ▼△",
+        "👑 ESTRUCTURA IMPERIAL",
+        "🌟 ꜱᴏᴍᴏꜱ ᴜɴ ᴄʟᴀɴ ǫᴜᴇ...",
+        "El clan ``{serverName}`` esta abierto para todos los usuarios"
+      ],
+      "alliances": [
+        "✠ 𝐀𝐥𝐢𝐚𝐧𝐳𝐚𝐬 ✠",
+        "🏹  ***ミ[· → Aliados← ·]彡***  🏹",
+        "🤝 ALIANZAS DE FUEGO ETERNO",
+        "===== ALLYS ====="
+      ],
+      "location": [
+        "● 𝗨𝗯𝗶𝗰𝗮𝗱𝗼𝘀 ●",
+        "📌 ***ミ[· →Nos situamos en← ·]彡***📌",
+        "🌍 Presencia Constante — Mundos activos:",
+        "-  ***¿Dónde estamos ubicados *** -"
+      ],
+      "leaders": [
+        "𝗢𝘄𝗻𝗲𝗿𝘀 & 𝗟𝗶𝗱𝗲𝗿𝗲𝘀",
+        "👑  ***ミ[· →Lideres← ·]彡 *** 👑",
+        "👑 ESTRUCTURA IMPERIAL",
+        "**`     =====   Owners  ===== `**👑"
+      ]
+    },
+    "minecraftElements": [
+      "Base muy grande 200x200",
+      "Sorteos semanales",
+      "Aldeanos OP",
+      "Kits de Aquan al Kraken",
+      "Tienda OP",
+      "Comida infinita",
+      "Eventos con recompensas OP",
+      "Granjas optimizadas",
+      "Parcelas para construir",
+      "Drops exclusivos",
+      "Warp pvp",
+      "Protección en warp pvp"
+    ],
+    "roleTypes": [
+      "Guerreros",
+      "Farmers",
+      "Builders",
+      "Mineros",
+      "Moderadores/Staffs",
+      "Aliados fieles hasta la muerte",
+      "Héroes de la Guerra",
+      "Maestros Constructores",
+      "Sabios del Cultivo"
+    ],
+    "serverVersions": [
+      "1.21 #1", "1.21 #2", "1.21 #3",
+      "1.20 #1", "1.20 #2", "1.20 #3",
+      "1.18 #1", "1.18 #2", "1.18 #3",
+      "Box PvP", "Hardcore"
+    ],
+    "textStyles": {
+      "smallCaps": "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀꜱᴛᴜᴠᴡxʏᴢ",
+      "bold": "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙",
+      "script": "𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩"
+    },
+    "emojis": {
+      "general": ["⚔️", "🔥", "⚡", "🌟", "👑", "🛡️", "🏰", "💎", "🎯", "✨"],
+      "minecraft": ["⛏️", "🗡️", "🏹", "🪓", "🍖", "🌾", "💰", "🎪", "🏠", "🔱"],
+      "community": ["🤝", "💕", "🫂", "👥", "🌍", "🎉", "🎁", "🏆", "🥇", "📍"]
+    }
+  },
+  "templates": {
+    "formal": {
+      "structure": [
+        "decorative_line",
+        "server_title_formal",
+        "decorative_line",
+        "offers_section",
+        "requirements_section", 
+        "alliances_section",
+        "location_section",
+        "leaders_section",
+        "decorative_line",
+        "call_to_action_formal",
+        "discord_link"
+      ]
+    },
+    "emotional": {
+      "structure": [
+        "emotional_border",
+        "server_title_emotional",
+        "emotional_border",
+        "welcome_message",
+        "community_description",
+        "offers_section_emotional",
+        "requirements_section_emotional",
+        "staff_section_emotional",
+        "alliances_section_emotional",
+        "call_to_action_emotional",
+        "discord_link_emotional"
+      ]
+    },
+    "epic": {
+      "structure": [
+        "epic_header",
+        "server_title_epic",
+        "epic_header",
+        "battle_cry",
+        "epic_description",
+        "offers_section_epic",
+        "requirements_section_epic",
+        "leaders_section_epic",
+        "alliances_section_epic",
+        "epic_footer",
+        "discord_link_epic"
+      ]
+    }
+  },
+  "phrases": {
+    "welcomeMessages": [
+      "Somos una gran comunidad llamada {serverName} donde todos la pasan muy bien",
+      "ꜱᴏᴍᴏꜱ ᴜɴ ᴄʟᴀɴ ǫᴜᴇ ᴅᴜʀᴀɴᴛᴇ ᴍᴜᴄʜᴏ ᴛɪᴇᴍᴘᴏ ʜᴀ ᴇꜱᴛᴀᴅᴏ ᴇɴ ᴇʟ ʙᴀᴊᴏ ᴍᴜɴᴅᴏ",
+      "¿ʜᴀꜱ ᴇꜱᴛᴀᴅᴏ ʙᴜꜱᴄᴀɴᴅᴏ ᴜɴ ᴄʟᴀɴ ᴍᴀʀᴀᴠɪʟʟᴏꜱᴏ ʀᴇꜱᴘᴇᴛᴜᴏꜱᴏ?",
+      "El clan {serverName} esta abierto para todos los usuarios"
+    ],
+    "callToAction": [
+      "¡Qué esperas? ¡Únete ya!",
+      "🔥 ¡EL DESTINO TE ESPERA! 🔥",
+      "¡Únete y se parte de nosotros!",
+      "Marca la diferencia y únete al clan",
+      "¿Qué esperas? ¡Únete ya a la leyenda!"
+    ]
+  }
+}
