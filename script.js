@@ -85,6 +85,10 @@ async function loadTemplateConfig() {
             fetch('training-data.json')
         ]);
         
+        if (!configResponse.ok || !trainingResponse.ok) {
+            throw new Error('Failed to load configuration files');
+        }
+        
         templateConfig = await configResponse.json();
         const trainingData = await trainingResponse.json();
         
@@ -98,6 +102,78 @@ async function loadTemplateConfig() {
         // Fallback to default config if files not found
         templateConfig = getDefaultConfig();
     }
+}
+
+function getDefaultConfig() {
+    return {
+        formal: {
+            name: "Formal Style",
+            icon: "💼",
+            class: "formal"
+        },
+        emotional: {
+            name: "Emotional Style", 
+            icon: "💖",
+            class: "emotional"
+        },
+        epic: {
+            name: "Epic Style",
+            icon: "👑", 
+            class: "epic"
+        },
+        patterns: {
+            decorativeElements: [
+                "▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱▰▱",
+                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+                "═══════════════════════════════",
+                "╔═══════════════════════════════╗"
+            ],
+            titles: [
+                "⚔️ 『{serverName}』 ⚔️",
+                "🔥 **{serverName}** 🔥",
+                "✨ **{serverName}** ✨"
+            ],
+            sectionHeaders: {
+                offers: [
+                    "✠ ¿Qué ofrecemos? ✠",
+                    "🎯 **¿Qué ofrecemos?**",
+                    "⚜️ **Ofrecemos:**"
+                ],
+                requirements: [
+                    "✦ ¿Qué buscamos? ✦",
+                    "🔱 **Buscamos:**",
+                    "✅ **Requisitos:**"
+                ]
+            }
+        },
+        phrases: {
+            welcomeMessages: [
+                "Somos una gran comunidad llamada {serverName} donde todos la pasan muy bien",
+                "¿Has estado buscando un clan maravilloso respetuoso?",
+                "El clan {serverName} está abierto para todos los usuarios"
+            ],
+            callToAction: [
+                "¡Qué esperas? ¡Únete ya!",
+                "🔥 ¡EL DESTINO TE ESPERA! 🔥",
+                "¡Únete y sé parte de nosotros!"
+            ]
+        },
+        responses: {
+            serverName: {
+                filters: ["el nombre de mi servidor es", "se llama", "mi servidor", "nuestro servidor"],
+                cleanPatterns: ["^(el nombre de mi servidor es|se llama|mi servidor|nuestro servidor)\\s*", "^(es|se llama)\\s*", "\"", "'"]
+            },
+            serverType: {
+                filters: ["es una comunidad", "somos", "es un servidor de", "tipo"],
+                cleanPatterns: ["^(es una comunidad|somos|es un servidor de|tipo)\\s*", "^(de|del|la)\\s*"]
+            }
+        },
+        skipMessages: {
+            staff: "Perfecto, continuaremos sin mencionar staff específico.",
+            banner: "Entendido, crearemos la plantilla sin banner.",
+            additionalInfo: "Muy bien, tenemos toda la información necesaria."
+        }
+    };
 }
 
 // Chat functions
@@ -117,6 +193,13 @@ async function startChat() {
     sendBtn.disabled = false;
     input.focus();
     
+    // Add enter key listener
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+    
     // Initialize the dynamic question system
     initializeQuestions();
     currentStep = 0;
@@ -128,6 +211,7 @@ async function startChat() {
     
     setTimeout(() => {
         addMessage(questions[0], false);
+        updateProgress();
     }, 1000);
 }
 
@@ -190,7 +274,7 @@ function sendMessage() {
     input.value = '';
     
     // Dynamic question expansion after server type
-    if (currentStep === 2 && chatData.serverType) {
+    if (currentStep === 1 && chatData.serverType) {
         const typeQuestions = getQuestionsForServerType(chatData.serverType);
         typeQuestions.forEach(q => {
             questions.push(q.text);
@@ -210,11 +294,8 @@ function sendMessage() {
     setTimeout(() => {
         if (currentStep < questions.length) {
             addMessage(questions[currentStep], false);
-        } else if (canAskMoreQuestions) {
-            addMessage("¿Te gustaría agregar algún detalle específico adicional o generar las plantillas ahora? (escribe 'más detalles' para continuar o 'generar' para crear las plantillas)", false);
-            canAskMoreQuestions = false;
         } else {
-            // Start generation
+            // Start generation immediately when we have all basic info
             addMessage("¡Perfecto! Tengo toda la información que necesito. Generando tus plantillas ahora...", false);
             disableInput();
             generateTemplates();
@@ -224,7 +305,7 @@ function sendMessage() {
 
 // Clean user responses using AI-like filtering
 function cleanUserResponse(message, questionKey) {
-    if (!templateConfig || !templateConfig.responses[questionKey]) {
+    if (!templateConfig || !templateConfig.responses || !templateConfig.responses[questionKey]) {
         return message;
     }
     
@@ -253,9 +334,9 @@ function updateProgress() {
     const progressText = document.getElementById('progress-text');
     const progressFill = document.getElementById('progress-fill');
     
-    const progress = ((currentStep + 1) / questions.length) * 100;
-    progressText.textContent = `${Math.min(currentStep + 1, questions.length)}/${questions.length} questions`;
-    progressFill.style.width = `${progress}%`;
+    const progress = (currentStep / questions.length) * 100;
+    progressText.textContent = `${currentStep}/${questions.length} preguntas`;
+    progressFill.style.width = `${Math.min(progress, 100)}%`;
 }
 
 function disableInput() {
@@ -266,35 +347,70 @@ function disableInput() {
     document.getElementById('send-icon').textContent = '⏳';
 }
 
-// Template generation (simulated AI)
+// Template generation
 function generateTemplates() {
     isGenerating = true;
     
-    // Simulate AI processing time
-    setTimeout(() => {
-        const templates = createTemplates(chatData);
-        generatedTemplates = templates;
+    try {
+        // Add loading message
+        addMessage("Generando tus plantillas personalizadas...", false);
         
-        addMessage("¡Increíble! He generado tus plantillas. Revísalas a continuación.", false);
-        
+        // Simulate AI processing time
         setTimeout(() => {
-            showResults(templates);
-        }, 1000);
-        
+            const templates = createTemplates(chatData);
+            generatedTemplates = templates;
+            
+            console.log('Templates generated:', templates); // Debug log
+            
+            addMessage("¡Increíble! He generado tus plantillas. Revísalas a continuación.", false);
+            
+            setTimeout(() => {
+                showResults(templates);
+            }, 1000);
+            
+            isGenerating = false;
+        }, 2000);
+    } catch (error) {
+        console.error('Error generating templates:', error);
+        addMessage("Hubo un error generando las plantillas. Por favor intenta de nuevo.", false);
         isGenerating = false;
-    }, 3000);
+    }
 }
 
 function createTemplates(data) {
+    console.log('Creating templates with data:', data); // Debug log
+    
     const templates = {};
     
-    // Generate each template type using the JSON configuration
-    Object.keys(templateConfig.formal ? {formal: templateConfig.formal, emotional: templateConfig.emotional, epic: templateConfig.epic} : {}).forEach(type => {
-        if (templateConfig[type]) {
-            const template = buildTemplateFromConfig(data, templateConfig[type]);
+    // Ensure we have minimum required data
+    if (!data.serverName) {
+        data.serverName = "Mi Servidor";
+    }
+    if (!data.serverType) {
+        data.serverType = "Gaming";
+    }
+    
+    // Generate each template type
+    const templateTypes = ['formal', 'emotional', 'epic'];
+    
+    templateTypes.forEach(type => {
+        try {
+            const template = buildTemplateFromConfig(data, type);
             templates[type] = {
                 content: template,
-                characterCount: template.length
+                characterCount: template.length,
+                name: getTemplateName(type),
+                icon: getTemplateIcon(type)
+            };
+            console.log(`Generated ${type} template:`, templates[type]); // Debug log
+        } catch (error) {
+            console.error(`Error generating ${type} template:`, error);
+            // Fallback template
+            templates[type] = {
+                content: `**${data.serverName}**\n\nSomos una comunidad ${data.serverType} increíble.\n\n¡Únete a nosotros!`,
+                characterCount: 50,
+                name: getTemplateName(type),
+                icon: getTemplateIcon(type)
             };
         }
     });
@@ -302,130 +418,155 @@ function createTemplates(data) {
     return templates;
 }
 
-function buildTemplateFromConfig(data, config) {
-    // Use AI-trained patterns to generate authentic templates
-    return generateAuthenticTemplate(data, config);
+function getTemplateName(type) {
+    const names = {
+        formal: "Estilo Formal",
+        emotional: "Estilo Emocional", 
+        epic: "Estilo Épico"
+    };
+    return names[type] || type;
 }
 
-function generateAuthenticTemplate(data, configType) {
-    const patterns = templateConfig.patterns;
-    const phrases = templateConfig.phrases;
+function getTemplateIcon(type) {
+    const icons = {
+        formal: "💼",
+        emotional: "💖",
+        epic: "👑"
+    };
+    return icons[type] || "📝";
+}
+
+function buildTemplateFromConfig(data, type) {
+    return generateAuthenticTemplate(data, type);
+}
+
+function generateAuthenticTemplate(data, templateType) {
+    // Ensure templateConfig is available
+    if (!templateConfig || !templateConfig.patterns) {
+        console.warn('Template config not loaded, using defaults');
+        templateConfig = getDefaultConfig();
+    }
     
-    // Randomly select elements to create variety
-    const getRandomElement = (array) => array[Math.floor(Math.random() * array.length)];
+    const patterns = templateConfig.patterns || {};
+    const phrases = templateConfig.phrases || {};
+    
+    // Safely get random element
+    const getRandomElement = (array) => {
+        if (!array || !Array.isArray(array) || array.length === 0) {
+            return '';
+        }
+        return array[Math.floor(Math.random() * array.length)];
+    };
     
     let template = '';
     
-    if (configType.class === 'formal') {
-        // Formal template structure based on real examples
-        const decorativeLine = getRandomElement(patterns.decorativeElements);
-        const titleStyle = getRandomElement(patterns.titles).replace('{serverName}', `**${data.serverName}**`);
+    if (templateType === 'formal') {
+        // Formal template structure
+        const decorativeLine = getRandomElement(patterns.decorativeElements) || "═══════════════════════════════";
+        const titleStyle = (getRandomElement(patterns.titles) || "⚔️ {serverName} ⚔️").replace('{serverName}', `**${data.serverName}**`);
         
         template += `${decorativeLine}\n\n`;
         template += `${titleStyle}\n\n`;
         template += `${decorativeLine}\n\n`;
         
         // Offers section
-        const offersHeader = getRandomElement(patterns.sectionHeaders.offers);
-        template += `${offersHeader}\n\n`;
-        template += generateOffersList(data.features, 'formal');
+        const offersHeader = getRandomElement(patterns.sectionHeaders?.offers) || "✠ ¿Qué ofrecemos? ✠";
+        template += `${offersHeader}\n`;
+        template += generateOffersList(data.features || data.contentType || data.theme || "Gran comunidad activa", 'formal');
         
         // Requirements section
-        const reqHeader = getRandomElement(patterns.sectionHeaders.requirements);
-        template += `\n\n${decorativeLine}\n\n`;
-        template += `${reqHeader}\n\n`;
-        template += generateRequirementsList(data.memberRequirements, 'formal');
+        if (data.roles || data.requirements || data.community) {
+            const reqHeader = getRandomElement(patterns.sectionHeaders?.requirements) || "✦ ¿Qué buscamos? ✦";
+            template += `\n${reqHeader}\n`;
+            template += generateRequirementsList(data.roles || data.requirements || data.community, 'formal');
+        }
         
-        // Optional sections
+        // Staff section
         if (data.staff) {
-            const leadersHeader = getRandomElement(patterns.sectionHeaders.leaders);
-            template += `\n\n${decorativeLine}\n\n`;
-            template += `${leadersHeader}\n\n`;
-            template += `${data.staff}`;
+            template += `\n**👑 Staff:**\n${data.staff}\n`;
         }
         
-        if (data.banner) {
-            template += `\n\n${decorativeLine}\n\n`;
-            template += `𝓑𝓪𝓷𝓮𝓻: ${data.banner}`;
-        }
+        // Call to action
+        const callToAction = getRandomElement(phrases.callToAction) || "¡Únete a nosotros!";
+        template += `\n${callToAction}`;
         
-        template += `\n\n${decorativeLine}\n\n`;
-        template += `${getRandomElement(phrases.callToAction)}\ndiscord.gg/ejemplo`;
-        template += `\n\n${decorativeLine}`;
-        
-    } else if (configType.class === 'emotional') {
-        // Emotional template with small caps and hearts
-        const emotionalBorder = "💖 ═══════════════════════════════ 💖";
-        template += `${emotionalBorder}\n`;
+    } else if (templateType === 'emotional') {
+        // Emotional template structure
+        template += `💖 ═══════════════════════════════ 💖\n`;
         template += `        ✨ **${data.serverName}** ✨\n`;
-        template += `${emotionalBorder}\n\n`;
+        template += `💖 ═══════════════════════════════ 💖\n\n`;
         
         template += `🌟 **¡Bienvenido a nuestro hogar!** 🌟\n\n`;
         
-        const welcomeMsg = getRandomElement(phrases.welcomeMessages).replace('{serverName}', data.serverName);
-        template += `${welcomeMsg}\n`;
-        template += `💕 ${data.features}\n\n`;
+        const welcomeMsg = (getRandomElement(phrases.welcomeMessages) || "Somos una gran comunidad donde todos la pasan muy bien").replace('{serverName}', data.serverName);
+        template += `${welcomeMsg}\n\n`;
         
-        template += `🤗 **Buscamos personas como tú:**\n`;
-        template += `${data.memberRequirements}\n\n`;
+        template += `🤗 **En nuestra comunidad encontrarás:**\n`;
+        template += generateOffersList(data.features || data.contentType || data.theme || "Ambiente amigable y acogedor", 'emotional');
+        
+        if (data.roles || data.requirements || data.community) {
+            template += `\n💕 **Buscamos personas como tú:**\n`;
+            template += generateRequirementsList(data.roles || data.requirements || data.community, 'emotional');
+        }
         
         if (data.staff) {
-            template += `👑 **Nuestro increíble equipo:**\n`;
-            template += `❤️ ${data.staff}\n\n`;
+            template += `\n❤️ **Nuestro increíble equipo:**\n${data.staff}\n`;
         }
         
-        if (data.banner) {
-            template += `🎨 **¡Mira lo que tenemos para ti!**\n`;
-            template += `🔗 ${data.banner}\n\n`;
-        }
+        template += `\n🏠 **¡Ven y forma parte de nuestra familia!**\n`;
+        const emotionalCall = getRandomElement(phrases.callToAction) || "¡Te esperamos con los brazos abiertos!";
+        template += `💕 ${emotionalCall} 🤗`;
         
-        template += `🏠 **¡Ven y forma parte de nuestra familia!**\n`;
-        template += `💕 discord.gg/ejemplo 💕\n\n`;
-        template += `¡Te esperamos con los brazos abiertos! 🤗`;
-        
-    } else if (configType.class === 'epic') {
-        // Epic template with dramatic styling
-        const epicBorder = "⚔️ ═══════════════════════════════ ⚔️";
-        template += `${epicBorder}\n`;
-        template += `    🔥 **${data.serverName.toUpperCase()}** 🔥\n`;
-        template += `${epicBorder}\n\n`;
+    } else if (templateType === 'epic') {
+        // Epic template structure
+        template += `⚔️ ═══════════════════════════════ ⚔️\n`;
+        template += `    🔥 **${data.serverName}** 🔥\n`;
+        template += `⚔️ ═══════════════════════════════ ⚔️\n\n`;
         
         template += `🛡️ **¡PREPÁRATE PARA LA BATALLA!** ⚡\n\n`;
         
-        template += `💥 Somos una comunidad ${data.serverType} ÉPICA que domina:\n`;
-        template += `🔥 ${data.features}\n\n`;
+        template += `💥 Somos una comunidad ÉPICA que domina:\n`;
+        template += generateOffersList(data.features || data.contentType || data.theme || "Poder absoluto y gloria eterna", 'epic');
         
-        template += `⚡ **¡RECLUTAMOS GUERREROS!**\n`;
-        template += `🎯 ${data.memberRequirements}\n\n`;
+        if (data.roles || data.requirements || data.community) {
+            template += `\n⚡ **¡RECLUTAMOS GUERREROS!**\n`;
+            template += generateRequirementsList(data.roles || data.requirements || data.community, 'epic');
+        }
         
         if (data.staff) {
-            template += `👑 **NUESTROS LÍDERES SUPREMOS:**\n`;
-            template += `⚔️ ${data.staff}\n\n`;
+            template += `\n👑 **NUESTROS LÍDERES SUPREMOS:**\n⚔️ ${data.staff}\n`;
         }
         
-        if (data.banner) {
-            template += `🏆 **¡OBSERVA NUESTRO PODER!**\n`;
-            template += `💥 ${data.banner}\n\n`;
-        }
-        
-        template += `🚀 **¡ÚNETE A LA LEYENDA!**\n`;
-        template += `⚔️ discord.gg/ejemplo ⚔️\n\n`;
-        template += `🔥 ¡EL DESTINO TE ESPERA! 🔥`;
+        template += `\n🚀 **¡ÚNETE A LA LEYENDA!**\n`;
+        const epicCall = getRandomElement(phrases.callToAction) || "¡EL DESTINO TE ESPERA!";
+        template += `🔥 ${epicCall} 🔥`;
+    }
+    
+    // Add additional info if provided
+    if (data.additionalInfo) {
+        template += `\n\n📌 **Información adicional:**\n${data.additionalInfo}`;
+    }
+    
+    // Ensure template doesn't exceed 2000 characters
+    if (template.length > 2000) {
+        template = template.substring(0, 1997) + "...";
     }
     
     return template;
 }
 
 function generateOffersList(features, style) {
-    const items = features.split(',').map(item => item.trim());
+    if (!features) return '';
+    
+    const items = features.split(',').map(item => item.trim()).filter(item => item.length > 0);
     let list = '';
     
-    items.forEach(item => {
+    items.forEach((item, index) => {
         if (style === 'formal') {
-            list += `-⊱ ${item}\n`;
+            list += `• ${item}\n`;
         } else if (style === 'emotional') {
-            list += `💕 ${item}\n`;
-        } else {
+            list += `💝 ${item}\n`;
+        } else if (style === 'epic') {
             list += `🔥 ${item}\n`;
         }
     });
@@ -434,98 +575,22 @@ function generateOffersList(features, style) {
 }
 
 function generateRequirementsList(requirements, style) {
-    const items = requirements.split(',').map(item => item.trim());
+    if (!requirements) return '';
+    
+    const items = requirements.split(',').map(item => item.trim()).filter(item => item.length > 0);
     let list = '';
     
-    items.forEach(item => {
+    items.forEach((item, index) => {
         if (style === 'formal') {
-            list += `-⊱ ${item}\n`;
+            list += `• ${item}\n`;
         } else if (style === 'emotional') {
             list += `🤗 ${item}\n`;
-        } else {
+        } else if (style === 'epic') {
             list += `⚡ ${item}\n`;
         }
     });
     
     return list;
-}
-
-// Fallback function if JSON config fails to load
-function getDefaultConfig() {
-    return {
-        formal: {
-            name: "Formal Style",
-            icon: "💼",
-            class: "formal",
-            structure: {
-                header: "╔═══════════════════════════════╗\n║          **{serverName}**          ║\n╚═══════════════════════════════╝",
-                info: "📋 **INFORMACIÓN DEL SERVIDOR**\n• Tipo: {serverType}\n• Características: {features}",
-                requirements: "👥 **REQUISITOS DE MIEMBROS**\n{memberRequirements}",
-                staff: "🔧 **STAFF**\n{staff}",
-                banner: "🔗 **ENLACE/BANNER**\n{banner}",
-                additional: "📌 **INFORMACIÓN ADICIONAL**\n{additionalInfo}",
-                footer: "🎯 **¡Únete a nuestra comunidad profesional!**\ndiscord.gg/ejemplo"
-            }
-        },
-        emotional: {
-            name: "Emotional Style",
-            icon: "💖",
-            class: "emotional",
-            structure: {
-                header: "💖 ═══════════════════════════════ 💖\n        ✨ **{serverName}** ✨\n💖 ═══════════════════════════════ 💖",
-                welcome: "🌟 **¡Bienvenido a nuestro hogar!** 🌟",
-                info: "Somos una comunidad {serverType} llena de amor y amistad donde encontrarás:\n💕 {features}",
-                requirements: "🤗 **Buscamos personas como tú:**\n{memberRequirements}",
-                staff: "👑 **Nuestro increíble equipo:**\n❤️ {staff}",
-                banner: "🎨 **¡Mira lo que tenemos para ti!**\n🔗 {banner}",
-                additional: "💝 **Algo especial:**\n{additionalInfo}",
-                footer: "🏠 **¡Ven y forma parte de nuestra familia!**\n💕 discord.gg/ejemplo 💕\n\n¡Te esperamos con los brazos abiertos! 🤗"
-            }
-        },
-        epic: {
-            name: "Epic Style",
-            icon: "👑",
-            class: "epic",
-            structure: {
-                header: "⚔️ ═══════════════════════════════ ⚔️\n    🔥 **{serverName}** 🔥\n⚔️ ═══════════════════════════════ ⚔️",
-                battle: "🛡️ **¡PREPÁRATE PARA LA BATALLA!** ⚡",
-                info: "💥 Somos una comunidad {serverType} ÉPICA que domina:\n🔥 {features}",
-                requirements: "⚡ **¡RECLUTAMOS GUERREROS!**\n🎯 {memberRequirements}",
-                staff: "👑 **NUESTROS LÍDERES SUPREMOS:**\n⚔️ {staff}",
-                banner: "🏆 **¡OBSERVA NUESTRO PODER!**\n💥 {banner}",
-                additional: "🌟 **MISIÓN ESPECIAL:**\n🔥 {additionalInfo}",
-                footer: "🚀 **¡ÚNETE A LA LEYENDA!**\n⚔️ discord.gg/ejemplo ⚔️\n\n🔥 ¡EL DESTINO TE ESPERA! 🔥"
-            }
-        },
-        responses: {
-            serverName: {
-                cleanPatterns: ["^(el nombre de mi servidor es|se llama|mi servidor|nuestro servidor)\\s*", "^(es|se llama)\\s*", "\"", "'"]
-            },
-            serverType: {
-                cleanPatterns: ["^(es una comunidad|somos|es un servidor de|tipo)\\s*", "^(de|del|la)\\s*"]
-            },
-            features: {
-                cleanPatterns: ["^(ofrecemos|tenemos|características|beneficios)\\s*", "^(son|incluyen)\\s*"]
-            },
-            memberRequirements: {
-                cleanPatterns: ["^(buscamos|necesitamos|requisitos|queremos)\\s*", "^(que sean|personas)\\s*"]
-            },
-            staff: {
-                cleanPatterns: ["^(staff|administradores|moderadores|equipo)\\s*", "^(son|tenemos)\\s*"]
-            },
-            banner: {
-                cleanPatterns: ["^(banner|enlace|link|imagen)\\s*", "^(es|está en)\\s*"]
-            },
-            additionalInfo: {
-                cleanPatterns: ["^(adicional|extra|también|además)\\s*", "^(información|info)\\s*"]
-            }
-        },
-        skipMessages: {
-            staff: "Perfecto, continuaremos sin mencionar staff específico.",
-            banner: "Entendido, crearemos la plantilla sin banner.",
-            additionalInfo: "Muy bien, tenemos toda la información necesaria."
-        }
-    };
 }
 
 function showResults(templates) {
@@ -534,58 +599,14 @@ function showResults(templates) {
     const templatesGrid = document.getElementById('templates-grid');
     templatesGrid.innerHTML = '';
     
-    // Use configuration from JSON or fallback
-    const templateTypes = [
-        { 
-            key: 'formal', 
-            title: templateConfig?.formal?.name || 'Formal Style', 
-            icon: templateConfig?.formal?.icon || '💼', 
-            class: templateConfig?.formal?.class || 'formal' 
-        },
-        { 
-            key: 'emotional', 
-            title: templateConfig?.emotional?.name || 'Emotional Style', 
-            icon: templateConfig?.emotional?.icon || '💖', 
-            class: templateConfig?.emotional?.class || 'emotional' 
-        },
-        { 
-            key: 'epic', 
-            title: templateConfig?.epic?.name || 'Epic Style', 
-            icon: templateConfig?.epic?.icon || '👑', 
-            class: templateConfig?.epic?.class || 'epic' 
-        }
-    ];
-    
-    templateTypes.forEach(type => {
-        const template = templates[type.key];
-        if (template) {
-            const card = createTemplateCard(type, template);
-            templatesGrid.appendChild(card);
-        }
+    Object.keys(templates).forEach(type => {
+        const template = templates[type];
+        const templateCard = createTemplateCard(type, template);
+        templatesGrid.appendChild(templateCard);
     });
     
     // Scroll to results
-    // Add "Ask More Questions" button after templates
-    const askMoreBtn = document.createElement('div');
-    askMoreBtn.className = 'ask-more-section';
-    askMoreBtn.innerHTML = `
-        <div class="ask-more-content">
-            <h3>¿No te convencen las plantillas?</h3>
-            <p>Puedo hacer más preguntas específicas para mejorar el resultado</p>
-            <button class="btn-ask-more" onclick="askMoreQuestions()">
-                Hacer más preguntas específicas
-            </button>
-        </div>
-    `;
-    
-    const resultsSection = document.getElementById('results');
-    resultsSection.appendChild(askMoreBtn);
-    
-    setTimeout(() => {
-        document.getElementById('results').scrollIntoView({ 
-            behavior: 'smooth' 
-        });
-    }, 100);
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
 }
 
 function createTemplateCard(type, template) {
@@ -593,142 +614,118 @@ function createTemplateCard(type, template) {
     card.className = 'template-card';
     
     const charCount = template.characterCount;
-    const charClass = charCount > 2000 ? 'danger' : charCount > 1800 ? 'warning' : 'good';
-    const charProgress = Math.min((charCount / 2000) * 100, 100);
+    const charClass = charCount <= 1800 ? 'good' : charCount <= 1950 ? 'warning' : 'danger';
     
     card.innerHTML = `
         <div class="template-header">
-            <div class="template-title ${type.class}">
-                <span>${type.icon}</span>
-                <span>${type.title}</span>
+            <div class="template-info">
+                <span class="template-icon">${template.icon}</span>
+                <span class="template-name">${template.name}</span>
             </div>
-            <div>
-                <div class="char-count ${charClass}">${charCount}/2000</div>
-                <div class="char-progress">
-                    <div class="char-progress-fill ${charClass}" style="width: ${charProgress}%"></div>
-                </div>
-            </div>
+            <span class="char-count ${charClass}">${charCount}/2000</span>
         </div>
         <div class="template-content">
             <div class="template-preview">${template.content}</div>
-            <div class="template-actions">
-                <button class="btn-copy ${type.class}" onclick="copyTemplate('${type.key}')">
-                    <span>📋</span>
-                    <span>Copy</span>
-                </button>
-                <button class="btn-edit" onclick="editTemplate('${type.key}')">✏️</button>
-                <button class="btn-regenerate" onclick="regenerateTemplate('${type.key}')">🔄</button>
-            </div>
+        </div>
+        <div class="template-actions">
+            <button class="btn-copy" onclick="copyTemplate('${type}')">
+                <span id="copy-icon-${type}">📋</span>
+                <span id="copy-text-${type}">Copiar</span>
+            </button>
+            <button class="btn-download-single" onclick="downloadTemplate('${type}')" title="Descargar">
+                📥
+            </button>
         </div>
     `;
     
     return card;
 }
 
-// Template actions
-function copyTemplate(templateKey) {
-    const template = generatedTemplates[templateKey];
+function copyTemplate(type) {
+    const template = generatedTemplates[type];
+    if (!template) return;
     
     navigator.clipboard.writeText(template.content).then(() => {
-        // Update button to show success
-        const button = event.target.closest('.btn-copy');
-        const originalText = button.innerHTML;
+        const icon = document.getElementById(`copy-icon-${type}`);
+        const text = document.getElementById(`copy-text-${type}`);
+        const button = icon.parentElement;
         
-        button.innerHTML = '<span>✅</span><span>Copied!</span>';
+        icon.textContent = '✅';
+        text.textContent = 'Copiado';
         button.classList.add('copied');
         
         setTimeout(() => {
-            button.innerHTML = originalText;
+            icon.textContent = '📋';
+            text.textContent = 'Copiar';
             button.classList.remove('copied');
         }, 2000);
-        
-        // Show toast-like message
-        showToast('Template copied to clipboard!');
-    }).catch(() => {
-        showToast('Failed to copy template', 'error');
+    }).catch(err => {
+        console.error('Error copying to clipboard:', err);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = template.content;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
     });
 }
 
-function editTemplate(templateKey) {
-    const template = generatedTemplates[templateKey];
-    const newContent = prompt('Edit your template:', template.content);
+function downloadTemplate(type) {
+    const template = generatedTemplates[type];
+    if (!template) return;
     
-    if (newContent !== null) {
-        generatedTemplates[templateKey] = {
-            content: newContent,
-            characterCount: newContent.length
-        };
-        
-        showResults(generatedTemplates);
-        showToast('Template updated successfully!');
-    }
-}
-
-function regenerateTemplate(templateKey) {
-    const button = event.target;
-    button.disabled = true;
-    button.innerHTML = '⏳';
-    
-    // Simulate regeneration using the new config system
-    setTimeout(() => {
-        const config = templateConfig[templateKey];
-        if (config) {
-            const newTemplate = buildTemplateFromConfig(chatData, config);
-            generatedTemplates[templateKey] = {
-                content: newTemplate,
-                characterCount: newTemplate.length
-            };
-        }
-        
-        showResults(generatedTemplates);
-        showToast('Template regenerated successfully!');
-        
-        button.disabled = false;
-        button.innerHTML = '🔄';
-    }, 2000);
-}
-
-function downloadAllTemplates() {
-    const { formal, emotional, epic } = generatedTemplates;
-    
-    const content = `FORMAL TEMPLATE:
-${formal.content}
-
-EMOTIONAL TEMPLATE:
-${emotional.content}
-
-EPIC TEMPLATE:
-${epic.content}`;
-    
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([template.content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${chatData.serverName || 'discord'}-templates.txt`;
+    a.download = `plantilla-${type}-${chatData.serverName || 'servidor'}.txt`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+function downloadAllTemplates() {
+    if (!generatedTemplates) return;
     
-    showToast('Templates downloaded successfully!');
+    let allContent = '';
+    Object.keys(generatedTemplates).forEach(type => {
+        const template = generatedTemplates[type];
+        allContent += `=== ${template.name.toUpperCase()} ===\n`;
+        allContent += `Caracteres: ${template.characterCount}/2000\n\n`;
+        allContent += template.content;
+        allContent += '\n\n' + '='.repeat(50) + '\n\n';
+    });
+    
+    const blob = new Blob([allContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `plantillas-${chatData.serverName || 'servidor'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 function startOver() {
-    // Reset everything
+    // Reset all variables
     currentStep = 0;
     chatData = {};
     generatedTemplates = null;
     isGenerating = false;
+    questions = [];
+    questionKeys = [];
+    canAskMoreQuestions = true;
     
-    // Reset UI
-    document.getElementById('start-section').classList.remove('hidden');
-    document.getElementById('chat-interface').classList.add('hidden');
+    // Hide results and chat interface
     document.getElementById('results').classList.add('hidden');
+    document.getElementById('chat-interface').classList.add('hidden');
+    document.getElementById('start-section').classList.remove('hidden');
     
     // Clear chat messages
     document.getElementById('chat-messages').innerHTML = '';
-    
-    // Reset progress
-    document.getElementById('progress-text').textContent = '1/7 questions';
-    document.getElementById('progress-fill').style.width = '0%';
     
     // Reset input
     const input = document.getElementById('user-input');
@@ -738,65 +735,27 @@ function startOver() {
     sendBtn.disabled = true;
     document.getElementById('send-icon').textContent = '📤';
     
+    // Reset progress
+    document.getElementById('progress-text').textContent = '0/2 preguntas';
+    document.getElementById('progress-fill').style.width = '0%';
+    
     // Scroll to generator
     scrollToGenerator();
-    
-    showToast('Ready to create a new template!');
 }
 
-// Utility functions
-function showToast(message, type = 'success') {
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${type === 'error' ? '#ef4444' : '#10b981'};
-        color: white;
-        padding: 12px 24px;
-        border-radius: 8px;
-        font-weight: 500;
-        z-index: 10000;
-        animation: slideIn 0.3s ease;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    `;
-    toast.textContent = message;
-    
-    // Add slide animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-    `;
-    document.head.appendChild(style);
-    
-    document.body.appendChild(toast);
-    
-    // Remove toast after 3 seconds
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-            document.body.removeChild(toast);
-            document.head.removeChild(style);
-        }, 300);
-    }, 3000);
-}
-
-// Event listeners
+// Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    // Enter key support for chat input
-    const input = document.getElementById('user-input');
-    input.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
+    // Load template configuration on page load
+    loadTemplateConfig();
+    
+    // Add smooth scrolling for navigation links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
             e.preventDefault();
-            sendMessage();
-        }
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
     });
 });
