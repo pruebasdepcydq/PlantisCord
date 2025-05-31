@@ -3,26 +3,72 @@ let currentStep = 0;
 let chatData = {};
 let generatedTemplates = null;
 let isGenerating = false;
+let templateConfig = null;
 
-const questions = [
-    "¿Cuál es el nombre de tu servidor de Discord?",
-    "¿Qué tipo de comunidad es? (Gaming, Social, Roleplay, Creativo, etc.)",
-    "¿Qué características únicas o beneficios ofrece tu servidor?",
-    "¿Qué tipo de miembros estás buscando?",
-    "¿Tienes miembros del staff para mencionar? (opcional)",
-    "¿Tienes un banner o enlace especial? (opcional)",
-    "¿Alguna información adicional o requisitos especiales? (opcional)"
+// Dynamic question system
+let questions = [];
+let questionKeys = [];
+let additionalQuestions = [];
+let canAskMoreQuestions = true;
+
+function initializeQuestions() {
+    questions = [
+        "¿Cuál es el nombre de tu servidor?",
+        "¿Qué tipo de comunidad es? (Ej: Minecraft/Gaming, Social/Anime, NSFW, RP/Roleplay, Apoyo/Network, Café/Chill)"
+    ];
+    
+    questionKeys = ["serverName", "serverType"];
+}
+
+function getQuestionsForServerType(serverType) {
+    const serverTypeLower = serverType.toLowerCase();
+    
+    if (serverTypeLower.includes('minecraft') || serverTypeLower.includes('gaming') || serverTypeLower.includes('clan')) {
+        return [
+            { key: 'gameMode', text: '¿En qué modalidades/versiones están ubicados? (Ej: 1.21 #2, 1.20 #1, Box PvP)' },
+            { key: 'features', text: '¿Qué ofrecen a los miembros? (Ej: base grande, granjas OP, sorteos semanales, kits)' },
+            { key: 'roles', text: '¿Qué roles reclutan? (Ej: guerreros, builders, farmers, moderadores)' },
+            { key: 'alliances', text: '¿Tienen alianzas con otros clanes? (opcional)', optional: true }
+        ];
+    } else if (serverTypeLower.includes('nsfw') || serverTypeLower.includes('semi-nsfw')) {
+        return [
+            { key: 'contentType', text: '¿Qué tipo de contenido ofrecen?' },
+            { key: 'features', text: '¿Qué beneficios especiales tienen? (Ej: bot economía, sorteos de nitro, contenido exclusivo)' },
+            { key: 'safety', text: '¿Qué medidas de seguridad implementan?' },
+            { key: 'verification', text: '¿Cómo es el proceso de verificación? (opcional)', optional: true }
+        ];
+    } else if (serverTypeLower.includes('rp') || serverTypeLower.includes('roleplay') || serverTypeLower.includes('café')) {
+        return [
+            { key: 'rpTheme', text: '¿Cuál es la temática del RP? (Ej: café, medieval, moderno, anime)' },
+            { key: 'features', text: '¿Qué elementos de RP ofrecen? (Ej: canales de RP, sistemas, eventos)' },
+            { key: 'roles', text: '¿Qué roles pueden interpretar los usuarios?' },
+            { key: 'rules', text: '¿Tienen reglas especiales para el RP? (opcional)', optional: true }
+        ];
+    } else if (serverTypeLower.includes('apoyo') || serverTypeLower.includes('network') || serverTypeLower.includes('alianza')) {
+        return [
+            { key: 'serviceType', text: '¿Qué tipo de apoyo ofrecen? (Ej: alianzas, promoción, blacklist, reclutamiento)' },
+            { key: 'features', text: '¿Qué servicios específicos brindan? (Ej: canales de promoción, staff hunting, partnerships)' },
+            { key: 'requirements', text: '¿Qué buscan en los servidores que se unen?' },
+            { key: 'benefits', text: '¿Qué beneficios obtienen los miembros? (opcional)', optional: true }
+        ];
+    } else {
+        // Social/Anime/General
+        return [
+            { key: 'theme', text: '¿Cuál es la temática principal? (Ej: anime, manga, gaming, general)' },
+            { key: 'features', text: '¿Qué actividades ofrecen? (Ej: chat activo, bots de entretenimiento, eventos, sorteos)' },
+            { key: 'community', text: '¿Qué tipo de ambiente buscan crear? (Ej: amigable, activo, no tóxico)' },
+            { key: 'channels', text: '¿Qué tipo de canales especiales tienen? (opcional)', optional: true }
+        ];
+    }
+}
+
+const commonOptionalQuestions = [
+    { key: 'staff', text: 'Menciona a tu staff/líderes principales (opcional)', optional: true },
+    { key: 'banner', text: 'Link del banner/imagen del servidor (opcional)', optional: true },
+    { key: 'additionalInfo', text: 'Información adicional que quieras destacar (opcional)', optional: true }
 ];
 
-const questionKeys = [
-    "serverName",
-    "serverType", 
-    "features",
-    "memberRequirements",
-    "staff",
-    "banner",
-    "additionalInfo"
-];
+const optionalQuestions = ["staff", "banner", "additionalInfo"];
 
 // Navigation functions
 function scrollToGenerator() {
@@ -31,10 +77,38 @@ function scrollToGenerator() {
     });
 }
 
+// Load template configuration and training data
+async function loadTemplateConfig() {
+    try {
+        const [configResponse, trainingResponse] = await Promise.all([
+            fetch('templates.json'),
+            fetch('training-data.json')
+        ]);
+        
+        templateConfig = await configResponse.json();
+        const trainingData = await trainingResponse.json();
+        
+        // Merge training data with config
+        templateConfig.patterns = trainingData.patterns;
+        templateConfig.phrases = trainingData.phrases;
+        templateConfig.trainingTemplates = trainingData.templates;
+        
+    } catch (error) {
+        console.error('Error loading configuration:', error);
+        // Fallback to default config if files not found
+        templateConfig = getDefaultConfig();
+    }
+}
+
 // Chat functions
-function startChat() {
+async function startChat() {
     document.getElementById('start-section').classList.add('hidden');
     document.getElementById('chat-interface').classList.remove('hidden');
+    
+    // Load configuration if not already loaded
+    if (!templateConfig) {
+        await loadTemplateConfig();
+    }
     
     // Enable input and send button
     const input = document.getElementById('user-input');
@@ -43,8 +117,14 @@ function startChat() {
     sendBtn.disabled = false;
     input.focus();
     
+    // Initialize the dynamic question system
+    initializeQuestions();
+    currentStep = 0;
+    chatData = {};
+    canAskMoreQuestions = true;
+    
     // Add first message
-    addMessage("¡Hola! Soy tu asistente de IA para plantillas de Discord. Te ayudaré a crear plantillas promocionales increíbles. ¡Empecemos con algunas preguntas!", false);
+    addMessage("¡Hola! Soy tu asistente de IA para plantillas de Discord. Te haré preguntas específicas según tu tipo de servidor para crear plantillas auténticas.", false);
     
     setTimeout(() => {
         addMessage(questions[0], false);
@@ -83,18 +163,45 @@ function addMessage(content, isUser = false) {
 function sendMessage() {
     const input = document.getElementById('user-input');
     const message = input.value.trim();
-    
-    if (!message || isGenerating) return;
-    
-    // Add user message
-    addMessage(message, true);
-    
-    // Store answer
     const questionKey = questionKeys[currentStep];
-    chatData[questionKey] = message;
+    
+    // Allow empty messages for optional questions
+    if (!message && !optionalQuestions.includes(questionKey)) {
+        return;
+    }
+    
+    if (isGenerating) return;
+    
+    // Handle optional questions
+    if (!message && optionalQuestions.includes(questionKey)) {
+        addMessage("(omitido)", true);
+        addMessage(templateConfig?.skipMessages[questionKey] || "Continuando...", false);
+        chatData[questionKey] = null;
+    } else {
+        // Add user message
+        addMessage(message, true);
+        
+        // Clean and filter the response
+        const cleanedMessage = cleanUserResponse(message, questionKey);
+        chatData[questionKey] = cleanedMessage;
+    }
     
     // Clear input
     input.value = '';
+    
+    // Dynamic question expansion after server type
+    if (currentStep === 2 && chatData.serverType) {
+        const typeQuestions = getQuestionsForServerType(chatData.serverType);
+        typeQuestions.forEach(q => {
+            questions.push(q.text);
+            questionKeys.push(q.key);
+        });
+        // Add common optional questions
+        commonOptionalQuestions.forEach(q => {
+            questions.push(q.text);
+            questionKeys.push(q.key);
+        });
+    }
     
     // Move to next question or generate
     currentStep++;
@@ -103,6 +210,9 @@ function sendMessage() {
     setTimeout(() => {
         if (currentStep < questions.length) {
             addMessage(questions[currentStep], false);
+        } else if (canAskMoreQuestions) {
+            addMessage("¿Te gustaría agregar algún detalle específico adicional o generar las plantillas ahora? (escribe 'más detalles' para continuar o 'generar' para crear las plantillas)", false);
+            canAskMoreQuestions = false;
         } else {
             // Start generation
             addMessage("¡Perfecto! Tengo toda la información que necesito. Generando tus plantillas ahora...", false);
@@ -110,6 +220,33 @@ function sendMessage() {
             generateTemplates();
         }
     }, 1000);
+}
+
+// Clean user responses using AI-like filtering
+function cleanUserResponse(message, questionKey) {
+    if (!templateConfig || !templateConfig.responses[questionKey]) {
+        return message;
+    }
+    
+    const config = templateConfig.responses[questionKey];
+    let cleaned = message.toLowerCase();
+    
+    // Apply clean patterns
+    config.cleanPatterns.forEach(pattern => {
+        const regex = new RegExp(pattern, 'gi');
+        cleaned = cleaned.replace(regex, '');
+    });
+    
+    // Trim and capitalize first letter
+    cleaned = cleaned.trim();
+    if (cleaned.length > 0) {
+        cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    }
+    
+    // Remove quotes
+    cleaned = cleaned.replace(/^["']|["']$/g, '');
+    
+    return cleaned || message;
 }
 
 function updateProgress() {
@@ -149,120 +286,246 @@ function generateTemplates() {
 }
 
 function createTemplates(data) {
-    const { serverName, serverType, features, memberRequirements, staff, banner, additionalInfo } = data;
+    const templates = {};
     
-    // Formal Template
-    const formal = createFormalTemplate(serverName, serverType, features, memberRequirements, staff, banner, additionalInfo);
+    // Generate each template type using the JSON configuration
+    Object.keys(templateConfig.formal ? {formal: templateConfig.formal, emotional: templateConfig.emotional, epic: templateConfig.epic} : {}).forEach(type => {
+        if (templateConfig[type]) {
+            const template = buildTemplateFromConfig(data, templateConfig[type]);
+            templates[type] = {
+                content: template,
+                characterCount: template.length
+            };
+        }
+    });
     
-    // Emotional Template
-    const emotional = createEmotionalTemplate(serverName, serverType, features, memberRequirements, staff, banner, additionalInfo);
+    return templates;
+}
+
+function buildTemplateFromConfig(data, config) {
+    // Use AI-trained patterns to generate authentic templates
+    return generateAuthenticTemplate(data, config);
+}
+
+function generateAuthenticTemplate(data, configType) {
+    const patterns = templateConfig.patterns;
+    const phrases = templateConfig.phrases;
     
-    // Epic Template
-    const epic = createEpicTemplate(serverName, serverType, features, memberRequirements, staff, banner, additionalInfo);
+    // Randomly select elements to create variety
+    const getRandomElement = (array) => array[Math.floor(Math.random() * array.length)];
     
+    let template = '';
+    
+    if (configType.class === 'formal') {
+        // Formal template structure based on real examples
+        const decorativeLine = getRandomElement(patterns.decorativeElements);
+        const titleStyle = getRandomElement(patterns.titles).replace('{serverName}', `**${data.serverName}**`);
+        
+        template += `${decorativeLine}\n\n`;
+        template += `${titleStyle}\n\n`;
+        template += `${decorativeLine}\n\n`;
+        
+        // Offers section
+        const offersHeader = getRandomElement(patterns.sectionHeaders.offers);
+        template += `${offersHeader}\n\n`;
+        template += generateOffersList(data.features, 'formal');
+        
+        // Requirements section
+        const reqHeader = getRandomElement(patterns.sectionHeaders.requirements);
+        template += `\n\n${decorativeLine}\n\n`;
+        template += `${reqHeader}\n\n`;
+        template += generateRequirementsList(data.memberRequirements, 'formal');
+        
+        // Optional sections
+        if (data.staff) {
+            const leadersHeader = getRandomElement(patterns.sectionHeaders.leaders);
+            template += `\n\n${decorativeLine}\n\n`;
+            template += `${leadersHeader}\n\n`;
+            template += `${data.staff}`;
+        }
+        
+        if (data.banner) {
+            template += `\n\n${decorativeLine}\n\n`;
+            template += `𝓑𝓪𝓷𝓮𝓻: ${data.banner}`;
+        }
+        
+        template += `\n\n${decorativeLine}\n\n`;
+        template += `${getRandomElement(phrases.callToAction)}\ndiscord.gg/ejemplo`;
+        template += `\n\n${decorativeLine}`;
+        
+    } else if (configType.class === 'emotional') {
+        // Emotional template with small caps and hearts
+        const emotionalBorder = "💖 ═══════════════════════════════ 💖";
+        template += `${emotionalBorder}\n`;
+        template += `        ✨ **${data.serverName}** ✨\n`;
+        template += `${emotionalBorder}\n\n`;
+        
+        template += `🌟 **¡Bienvenido a nuestro hogar!** 🌟\n\n`;
+        
+        const welcomeMsg = getRandomElement(phrases.welcomeMessages).replace('{serverName}', data.serverName);
+        template += `${welcomeMsg}\n`;
+        template += `💕 ${data.features}\n\n`;
+        
+        template += `🤗 **Buscamos personas como tú:**\n`;
+        template += `${data.memberRequirements}\n\n`;
+        
+        if (data.staff) {
+            template += `👑 **Nuestro increíble equipo:**\n`;
+            template += `❤️ ${data.staff}\n\n`;
+        }
+        
+        if (data.banner) {
+            template += `🎨 **¡Mira lo que tenemos para ti!**\n`;
+            template += `🔗 ${data.banner}\n\n`;
+        }
+        
+        template += `🏠 **¡Ven y forma parte de nuestra familia!**\n`;
+        template += `💕 discord.gg/ejemplo 💕\n\n`;
+        template += `¡Te esperamos con los brazos abiertos! 🤗`;
+        
+    } else if (configType.class === 'epic') {
+        // Epic template with dramatic styling
+        const epicBorder = "⚔️ ═══════════════════════════════ ⚔️";
+        template += `${epicBorder}\n`;
+        template += `    🔥 **${data.serverName.toUpperCase()}** 🔥\n`;
+        template += `${epicBorder}\n\n`;
+        
+        template += `🛡️ **¡PREPÁRATE PARA LA BATALLA!** ⚡\n\n`;
+        
+        template += `💥 Somos una comunidad ${data.serverType} ÉPICA que domina:\n`;
+        template += `🔥 ${data.features}\n\n`;
+        
+        template += `⚡ **¡RECLUTAMOS GUERREROS!**\n`;
+        template += `🎯 ${data.memberRequirements}\n\n`;
+        
+        if (data.staff) {
+            template += `👑 **NUESTROS LÍDERES SUPREMOS:**\n`;
+            template += `⚔️ ${data.staff}\n\n`;
+        }
+        
+        if (data.banner) {
+            template += `🏆 **¡OBSERVA NUESTRO PODER!**\n`;
+            template += `💥 ${data.banner}\n\n`;
+        }
+        
+        template += `🚀 **¡ÚNETE A LA LEYENDA!**\n`;
+        template += `⚔️ discord.gg/ejemplo ⚔️\n\n`;
+        template += `🔥 ¡EL DESTINO TE ESPERA! 🔥`;
+    }
+    
+    return template;
+}
+
+function generateOffersList(features, style) {
+    const items = features.split(',').map(item => item.trim());
+    let list = '';
+    
+    items.forEach(item => {
+        if (style === 'formal') {
+            list += `-⊱ ${item}\n`;
+        } else if (style === 'emotional') {
+            list += `💕 ${item}\n`;
+        } else {
+            list += `🔥 ${item}\n`;
+        }
+    });
+    
+    return list;
+}
+
+function generateRequirementsList(requirements, style) {
+    const items = requirements.split(',').map(item => item.trim());
+    let list = '';
+    
+    items.forEach(item => {
+        if (style === 'formal') {
+            list += `-⊱ ${item}\n`;
+        } else if (style === 'emotional') {
+            list += `🤗 ${item}\n`;
+        } else {
+            list += `⚡ ${item}\n`;
+        }
+    });
+    
+    return list;
+}
+
+// Fallback function if JSON config fails to load
+function getDefaultConfig() {
     return {
         formal: {
-            content: formal,
-            characterCount: formal.length
+            name: "Formal Style",
+            icon: "💼",
+            class: "formal",
+            structure: {
+                header: "╔═══════════════════════════════╗\n║          **{serverName}**          ║\n╚═══════════════════════════════╝",
+                info: "📋 **INFORMACIÓN DEL SERVIDOR**\n• Tipo: {serverType}\n• Características: {features}",
+                requirements: "👥 **REQUISITOS DE MIEMBROS**\n{memberRequirements}",
+                staff: "🔧 **STAFF**\n{staff}",
+                banner: "🔗 **ENLACE/BANNER**\n{banner}",
+                additional: "📌 **INFORMACIÓN ADICIONAL**\n{additionalInfo}",
+                footer: "🎯 **¡Únete a nuestra comunidad profesional!**\ndiscord.gg/ejemplo"
+            }
         },
         emotional: {
-            content: emotional,
-            characterCount: emotional.length
+            name: "Emotional Style",
+            icon: "💖",
+            class: "emotional",
+            structure: {
+                header: "💖 ═══════════════════════════════ 💖\n        ✨ **{serverName}** ✨\n💖 ═══════════════════════════════ 💖",
+                welcome: "🌟 **¡Bienvenido a nuestro hogar!** 🌟",
+                info: "Somos una comunidad {serverType} llena de amor y amistad donde encontrarás:\n💕 {features}",
+                requirements: "🤗 **Buscamos personas como tú:**\n{memberRequirements}",
+                staff: "👑 **Nuestro increíble equipo:**\n❤️ {staff}",
+                banner: "🎨 **¡Mira lo que tenemos para ti!**\n🔗 {banner}",
+                additional: "💝 **Algo especial:**\n{additionalInfo}",
+                footer: "🏠 **¡Ven y forma parte de nuestra familia!**\n💕 discord.gg/ejemplo 💕\n\n¡Te esperamos con los brazos abiertos! 🤗"
+            }
         },
         epic: {
-            content: epic,
-            characterCount: epic.length
+            name: "Epic Style",
+            icon: "👑",
+            class: "epic",
+            structure: {
+                header: "⚔️ ═══════════════════════════════ ⚔️\n    🔥 **{serverName}** 🔥\n⚔️ ═══════════════════════════════ ⚔️",
+                battle: "🛡️ **¡PREPÁRATE PARA LA BATALLA!** ⚡",
+                info: "💥 Somos una comunidad {serverType} ÉPICA que domina:\n🔥 {features}",
+                requirements: "⚡ **¡RECLUTAMOS GUERREROS!**\n🎯 {memberRequirements}",
+                staff: "👑 **NUESTROS LÍDERES SUPREMOS:**\n⚔️ {staff}",
+                banner: "🏆 **¡OBSERVA NUESTRO PODER!**\n💥 {banner}",
+                additional: "🌟 **MISIÓN ESPECIAL:**\n🔥 {additionalInfo}",
+                footer: "🚀 **¡ÚNETE A LA LEYENDA!**\n⚔️ discord.gg/ejemplo ⚔️\n\n🔥 ¡EL DESTINO TE ESPERA! 🔥"
+            }
+        },
+        responses: {
+            serverName: {
+                cleanPatterns: ["^(el nombre de mi servidor es|se llama|mi servidor|nuestro servidor)\\s*", "^(es|se llama)\\s*", "\"", "'"]
+            },
+            serverType: {
+                cleanPatterns: ["^(es una comunidad|somos|es un servidor de|tipo)\\s*", "^(de|del|la)\\s*"]
+            },
+            features: {
+                cleanPatterns: ["^(ofrecemos|tenemos|características|beneficios)\\s*", "^(son|incluyen)\\s*"]
+            },
+            memberRequirements: {
+                cleanPatterns: ["^(buscamos|necesitamos|requisitos|queremos)\\s*", "^(que sean|personas)\\s*"]
+            },
+            staff: {
+                cleanPatterns: ["^(staff|administradores|moderadores|equipo)\\s*", "^(son|tenemos)\\s*"]
+            },
+            banner: {
+                cleanPatterns: ["^(banner|enlace|link|imagen)\\s*", "^(es|está en)\\s*"]
+            },
+            additionalInfo: {
+                cleanPatterns: ["^(adicional|extra|también|además)\\s*", "^(información|info)\\s*"]
+            }
+        },
+        skipMessages: {
+            staff: "Perfecto, continuaremos sin mencionar staff específico.",
+            banner: "Entendido, crearemos la plantilla sin banner.",
+            additionalInfo: "Muy bien, tenemos toda la información necesaria."
         }
     };
-}
-
-function createFormalTemplate(serverName, serverType, features, memberRequirements, staff, banner, additionalInfo) {
-    let template = `╔═══════════════════════════════╗
-║          **${serverName}**          ║
-╚═══════════════════════════════╝
-
-📋 **INFORMACIÓN DEL SERVIDOR**
-• Tipo: ${serverType}
-• Características: ${features}
-
-👥 **REQUISITOS DE MIEMBROS**
-${memberRequirements}`;
-
-    if (staff) {
-        template += `\n\n🔧 **STAFF**\n${staff}`;
-    }
-    
-    if (banner) {
-        template += `\n\n🔗 **ENLACE/BANNER**\n${banner}`;
-    }
-    
-    if (additionalInfo) {
-        template += `\n\n📌 **INFORMACIÓN ADICIONAL**\n${additionalInfo}`;
-    }
-    
-    template += `\n\n🎯 **¡Únete a nuestra comunidad profesional!**\ndiscord.gg/ejemplo`;
-    
-    return template;
-}
-
-function createEmotionalTemplate(serverName, serverType, features, memberRequirements, staff, banner, additionalInfo) {
-    let template = `💖 ═══════════════════════════════ 💖
-        ✨ **${serverName}** ✨
-💖 ═══════════════════════════════ 💖
-
-🌟 **¡Bienvenido a nuestro hogar!** 🌟
-
-Somos una comunidad ${serverType} llena de amor y amistad donde encontrarás:
-💕 ${features}
-
-🤗 **Buscamos personas como tú:**
-${memberRequirements}`;
-
-    if (staff) {
-        template += `\n\n👑 **Nuestro increíble equipo:**\n❤️ ${staff}`;
-    }
-    
-    if (banner) {
-        template += `\n\n🎨 **¡Mira lo que tenemos para ti!**\n🔗 ${banner}`;
-    }
-    
-    if (additionalInfo) {
-        template += `\n\n💝 **Algo especial:**\n${additionalInfo}`;
-    }
-    
-    template += `\n\n🏠 **¡Ven y forma parte de nuestra familia!**\n💕 discord.gg/ejemplo 💕\n\n¡Te esperamos con los brazos abiertos! 🤗`;
-    
-    return template;
-}
-
-function createEpicTemplate(serverName, serverType, features, memberRequirements, staff, banner, additionalInfo) {
-    let template = `⚔️ ═══════════════════════════════ ⚔️
-    🔥 **${serverName.toUpperCase()}** 🔥
-⚔️ ═══════════════════════════════ ⚔️
-
-🛡️ **¡PREPÁRATE PARA LA BATALLA!** ⚡
-
-💥 Somos una comunidad ${serverType} ÉPICA que domina:
-🔥 ${features}
-
-⚡ **¡RECLUTAMOS GUERREROS!**
-🎯 ${memberRequirements}`;
-
-    if (staff) {
-        template += `\n\n👑 **NUESTROS LÍDERES SUPREMOS:**\n⚔️ ${staff}`;
-    }
-    
-    if (banner) {
-        template += `\n\n🏆 **¡OBSERVA NUESTRO PODER!**\n💥 ${banner}`;
-    }
-    
-    if (additionalInfo) {
-        template += `\n\n🌟 **MISIÓN ESPECIAL:**\n🔥 ${additionalInfo}`;
-    }
-    
-    template += `\n\n🚀 **¡ÚNETE A LA LEYENDA!**\n⚔️ discord.gg/ejemplo ⚔️\n\n🔥 ¡EL DESTINO TE ESPERA! 🔥`;
-    
-    return template;
 }
 
 function showResults(templates) {
@@ -271,19 +534,53 @@ function showResults(templates) {
     const templatesGrid = document.getElementById('templates-grid');
     templatesGrid.innerHTML = '';
     
+    // Use configuration from JSON or fallback
     const templateTypes = [
-        { key: 'formal', title: 'Formal Style', icon: '💼', class: 'formal' },
-        { key: 'emotional', title: 'Emotional Style', icon: '💖', class: 'emotional' },
-        { key: 'epic', title: 'Epic Style', icon: '👑', class: 'epic' }
+        { 
+            key: 'formal', 
+            title: templateConfig?.formal?.name || 'Formal Style', 
+            icon: templateConfig?.formal?.icon || '💼', 
+            class: templateConfig?.formal?.class || 'formal' 
+        },
+        { 
+            key: 'emotional', 
+            title: templateConfig?.emotional?.name || 'Emotional Style', 
+            icon: templateConfig?.emotional?.icon || '💖', 
+            class: templateConfig?.emotional?.class || 'emotional' 
+        },
+        { 
+            key: 'epic', 
+            title: templateConfig?.epic?.name || 'Epic Style', 
+            icon: templateConfig?.epic?.icon || '👑', 
+            class: templateConfig?.epic?.class || 'epic' 
+        }
     ];
     
     templateTypes.forEach(type => {
         const template = templates[type.key];
-        const card = createTemplateCard(type, template);
-        templatesGrid.appendChild(card);
+        if (template) {
+            const card = createTemplateCard(type, template);
+            templatesGrid.appendChild(card);
+        }
     });
     
     // Scroll to results
+    // Add "Ask More Questions" button after templates
+    const askMoreBtn = document.createElement('div');
+    askMoreBtn.className = 'ask-more-section';
+    askMoreBtn.innerHTML = `
+        <div class="ask-more-content">
+            <h3>¿No te convencen las plantillas?</h3>
+            <p>Puedo hacer más preguntas específicas para mejorar el resultado</p>
+            <button class="btn-ask-more" onclick="askMoreQuestions()">
+                Hacer más preguntas específicas
+            </button>
+        </div>
+    `;
+    
+    const resultsSection = document.getElementById('results');
+    resultsSection.appendChild(askMoreBtn);
+    
     setTimeout(() => {
         document.getElementById('results').scrollIntoView({ 
             behavior: 'smooth' 
@@ -372,31 +669,16 @@ function regenerateTemplate(templateKey) {
     button.disabled = true;
     button.innerHTML = '⏳';
     
-    // Simulate regeneration
+    // Simulate regeneration using the new config system
     setTimeout(() => {
-        let newTemplate;
-        
-        if (templateKey === 'formal') {
-            newTemplate = createFormalTemplate(
-                chatData.serverName, chatData.serverType, chatData.features,
-                chatData.memberRequirements, chatData.staff, chatData.banner, chatData.additionalInfo
-            );
-        } else if (templateKey === 'emotional') {
-            newTemplate = createEmotionalTemplate(
-                chatData.serverName, chatData.serverType, chatData.features,
-                chatData.memberRequirements, chatData.staff, chatData.banner, chatData.additionalInfo
-            );
-        } else {
-            newTemplate = createEpicTemplate(
-                chatData.serverName, chatData.serverType, chatData.features,
-                chatData.memberRequirements, chatData.staff, chatData.banner, chatData.additionalInfo
-            );
+        const config = templateConfig[templateKey];
+        if (config) {
+            const newTemplate = buildTemplateFromConfig(chatData, config);
+            generatedTemplates[templateKey] = {
+                content: newTemplate,
+                characterCount: newTemplate.length
+            };
         }
-        
-        generatedTemplates[templateKey] = {
-            content: newTemplate,
-            characterCount: newTemplate.length
-        };
         
         showResults(generatedTemplates);
         showToast('Template regenerated successfully!');
@@ -488,6 +770,10 @@ function showToast(message, type = 'success') {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
     `;
     document.head.appendChild(style);
     
@@ -514,13 +800,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-// Add slide out animation
-const slideOutStyle = document.createElement('style');
-slideOutStyle.textContent = `
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
-document.head.appendChild(slideOutStyle);
